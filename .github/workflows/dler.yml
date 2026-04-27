@@ -13,17 +13,19 @@ on:
 jobs:
   download:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
 
       - name: Download file
         run: |
-          curl -L "${{ github.event.inputs.url }}" -o "${{ github.event.inputs.filename }}"
+          wget --tries=3 --timeout=60 -O "${{ github.event.inputs.filename }}" "${{ github.event.inputs.url }}"
 
       - name: Split if over 90MB
         run: |
           FILE="${{ github.event.inputs.filename }}"
-          MAX=94371840  # 90MB in bytes
+          MAX=94371840
           SIZE=$(stat -c%s "$FILE")
           if [ "$SIZE" -gt "$MAX" ]; then
             mkdir -p parts
