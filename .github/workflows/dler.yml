@@ -1,0 +1,47 @@
+name: Download File
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'URL to download'
+        required: true
+      filename:
+        description: 'Save as filename'
+        required: true
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download file
+        run: |
+          curl -L "${{ github.event.inputs.url }}" -o "${{ github.event.inputs.filename }}"
+
+      - name: Split if over 90MB
+        run: |
+          FILE="${{ github.event.inputs.filename }}"
+          MAX=94371840  # 90MB in bytes
+          SIZE=$(stat -c%s "$FILE")
+          if [ "$SIZE" -gt "$MAX" ]; then
+            mkdir -p parts
+            split -b 90M "$FILE" "parts/${FILE}.part."
+            rm "$FILE"
+            echo "SPLIT=true" >> $GITHUB_ENV
+          else
+            echo "SPLIT=false" >> $GITHUB_ENV
+          fi
+
+      - name: Commit file(s)
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          if [ "$SPLIT" = "true" ]; then
+            git add parts/
+          else
+            git add "${{ github.event.inputs.filename }}"
+          fi
+          git commit -m "Downloaded: ${{ github.event.inputs.filename }}"
+          git push
